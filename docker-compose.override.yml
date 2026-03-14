@@ -1,0 +1,24 @@
+services:
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    environment:
+      ASPNETCORE_ENVIRONMENT: Development
+      ConnectionStrings__Postgres: "Host=postgres;Port=5432;Database=JobMarketDev;Username=postgres;Password=postgres"
+      ConnectionStrings__Redis: "redis:6379"
+      Jwt__SecretKey: "dev-secret-key-at-least-32-characters-long-for-jwt"
+      Jwt__Issuer: "JobMarketAPI"
+      Jwt__Audience: "JobMarketClient"
+      Jwt__AccessTokenExpiryMinutes: "60"
+      Jwt__RefreshTokenExpiryDays: "30"
+      OpenAi__ApiKey: "${OPENAI_API_KEY:-}"
+      OpenAi__EmbeddingModel: "text-embedding-3-small"
+      OpenAi__ChatModel: "gpt-4o-mini"
+    ports:
+      - "8080:8080"
+
+  postgres:
+    environment:
+      POSTGRES_DB: JobMarketDev
+      POSTGRES_PASSWORD: postgres

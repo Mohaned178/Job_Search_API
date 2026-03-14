@@ -1,0 +1,6 @@
+@JobMarket.API_HostAddress = http://localhost:5147
+
+GET {{JobMarket.API_HostAddress}}/weatherforecast/
+Accept: application/json
+
+###
