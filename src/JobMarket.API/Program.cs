@@ -5,6 +5,7 @@ using JobMarket.API.Middleware;
 using JobMarket.Application;
 using JobMarket.Application.Common.Interfaces;
 using JobMarket.Infrastructure;
+using JobMarket.Infrastructure.Options;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.IdentityModel.Tokens;
 using Scalar.AspNetCore;
@@ -27,10 +28,11 @@ try
 
     builder.Services.AddControllers();
     builder.Services.AddOpenApi();
+    builder.Services.AddHealthChecks();
 
     string[] allowedOrigins = builder.Configuration
         .GetSection("AllowedOrigins")
-        .Get<string[]>() ?? new[] { "http://localhost:3000" };
+        .Get<string[]>() ?? ["http://localhost:3000"];
 
     builder.Services.AddCors(options =>
         options.AddDefaultPolicy(policy =>
@@ -38,19 +40,21 @@ try
                   .AllowAnyHeader()
                   .AllowAnyMethod()));
 
+    JwtOptions jwtOptions = builder.Configuration.GetSection("Jwt").Get<JwtOptions>()
+        ?? throw new InvalidOperationException("JWT configuration section 'Jwt' is missing or invalid.");
+
     builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
         .AddJwtBearer(options =>
         {
-            JwtOptions jwt = builder.Configuration.GetSection("Jwt").Get<JwtOptions>()!;
             options.TokenValidationParameters = new TokenValidationParameters
             {
                 ValidateIssuer = true,
                 ValidateAudience = true,
                 ValidateLifetime = true,
                 ValidateIssuerSigningKey = true,
-                ValidIssuer = jwt.Issuer,
-                ValidAudience = jwt.Audience,
-                IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(jwt.SecretKey))
+                ValidIssuer = jwtOptions.Issuer,
+                ValidAudience = jwtOptions.Audience,
+                IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(jwtOptions.SecretKey))
             };
         });
 
@@ -71,6 +75,7 @@ try
     app.UseAuthorization();
 
     app.MapControllers();
+    app.MapHealthChecks("/health");
 
     app.MapOpenApi();
     app.MapScalarApiReference(options =>
@@ -79,10 +84,13 @@ try
         options.Theme = ScalarTheme.Mars;
     });
 
-    app.UseHangfireDashboard("/hangfire", new DashboardOptions
+    if (app.Environment.IsDevelopment())
     {
-        Authorization = new[] { new Hangfire.Dashboard.LocalRequestsOnlyAuthorizationFilter() }
-    });
+        app.UseHangfireDashboard("/hangfire", new DashboardOptions
+        {
+            Authorization = [new Hangfire.Dashboard.LocalRequestsOnlyAuthorizationFilter()]
+        });
+    }
 
     RecurringJob.AddOrUpdate<IJobIngestionJob>(
         "job-ingestion-daily",
@@ -101,5 +109,3 @@ finally
 }
 
 public partial class Program { }
-
-record JwtOptions(string SecretKey, string Issuer, string Audience);
