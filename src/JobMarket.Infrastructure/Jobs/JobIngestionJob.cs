@@ -30,7 +30,6 @@ public class JobIngestionJob : IJobIngestionJob
     public async Task IngestAsync(CancellationToken ct)
     {
         _logger.LogInformation("Starting job ingestion");
-        int totalNew = 0;
 
         var allStrategies = _scraperFactory.GetAll();
         var scraperOptions = new Application.Common.Interfaces.ScraperOptions { MaxPages = 5 };
@@ -43,13 +42,27 @@ public class JobIngestionJob : IJobIngestionJob
             {
                 var rawListings = await strategy.ScrapeAsync(scraperOptions, ct);
 
+                if (rawListings.Count == 0)
+                {
+                    _logger.LogInformation("No listings found from {Source}", strategy.Source);
+                    continue;
+                }
+
+                List<string> incomingSourceJobIds = rawListings
+                    .Select(r => r.SourceJobId)
+                    .ToList();
+
+                HashSet<string> existingSourceJobIds = (await _context.Jobs
+                    .Where(j => j.Source == strategy.Source && incomingSourceJobIds.Contains(j.SourceJobId))
+                    .Select(j => j.SourceJobId)
+                    .ToListAsync(ct))
+                    .ToHashSet();
+
+                int newCount = 0;
                 foreach (var raw in rawListings)
                 {
-                    bool exists = await _context.Jobs.AnyAsync(
-                        j => j.Source == strategy.Source && j.SourceJobId == raw.SourceJobId,
-                        ct);
-
-                    if (exists) continue;
+                    if (existingSourceJobIds.Contains(raw.SourceJobId))
+                        continue;
 
                     Job job = Job.Create(
                         raw.Title,
@@ -63,12 +76,11 @@ public class JobIngestionJob : IJobIngestionJob
                         raw.PostedAt);
 
                     await _context.Jobs.AddAsync(job, ct);
-                    totalNew++;
+                    newCount++;
                 }
 
                 await _context.SaveChangesAsync(ct);
-                _logger.LogInformation("Ingested {Count} new jobs from {Source}", totalNew, strategy.Source);
-                totalNew = 0;
+                _logger.LogInformation("Ingested {Count} new jobs from {Source}", newCount, strategy.Source);
             }
             catch (Exception ex)
             {

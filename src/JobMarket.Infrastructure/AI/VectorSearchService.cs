@@ -29,21 +29,36 @@ public class VectorSearchService : IVectorSearchService
 
         string vectorString = $"[{string.Join(",", queryVector)}]";
 
+        List<string> conditions = ["embedding IS NOT NULL"];
+        List<object> parameters = [vectorString, topK];
+
+        if (filter?.Country is not null)
+        {
+            conditions.Add($"\"Country\" = {{{parameters.Count}}}");
+            parameters.Add(filter.Country);
+        }
+
+        if (filter?.SeniorityLevel is not null)
+        {
+            conditions.Add($"\"SeniorityLevel\" = {{{parameters.Count}}}");
+            parameters.Add((int)filter.SeniorityLevel.Value);
+        }
+
+        if (filter?.JobType is not null)
+        {
+            conditions.Add($"\"JobType\" = {{{parameters.Count}}}");
+            parameters.Add((int)filter.JobType.Value);
+        }
+
+        string whereClause = string.Join(" AND ", conditions);
+
         List<Job> jobs = await _context.Jobs
             .FromSqlRaw(
-                "SELECT * FROM \"Jobs\" WHERE embedding IS NOT NULL ORDER BY embedding <=> {0}::vector LIMIT {1}",
-                vectorString,
-                topK * 3)
+                $"SELECT * FROM \"Jobs\" WHERE {whereClause} ORDER BY embedding <=> {{0}}::vector LIMIT {{1}}",
+                parameters.ToArray())
             .ToListAsync(ct);
 
-        if (filter?.Country != null)
-            jobs = jobs.Where(j => j.Country == filter.Country).ToList();
-        if (filter?.SeniorityLevel != null)
-            jobs = jobs.Where(j => j.SeniorityLevel == filter.SeniorityLevel).ToList();
-        if (filter?.JobType != null)
-            jobs = jobs.Where(j => j.JobType == filter.JobType).ToList();
-
-        return jobs.Take(topK).Select((j, i) => new JobMatchResult
+        return jobs.Select((j, i) => new JobMatchResult
         {
             Job = j,
             MatchScore = 1.0 - (i * 0.01)

@@ -23,6 +23,8 @@ public class SearchJobsHandler : IRequestHandler<SearchJobsQuery, PaginatedResul
         CancellationToken cancellationToken)
     {
         JobSearchFilter filter = request.Filter;
+        int page = Math.Max(1, filter.Page);
+        int pageSize = Math.Clamp(filter.PageSize, 1, 100);
 
         Expression<Func<Job, bool>> predicate = j =>
             (string.IsNullOrEmpty(filter.Keyword) || j.Title.Contains(filter.Keyword) || j.Description.Contains(filter.Keyword)) &&
@@ -33,20 +35,15 @@ public class SearchJobsHandler : IRequestHandler<SearchJobsQuery, PaginatedResul
             (!filter.SalaryMin.HasValue || j.SalaryMin >= filter.SalaryMin) &&
             (!filter.SalaryMax.HasValue || j.SalaryMax <= filter.SalaryMax);
 
-        int totalCount = await _unitOfWork.Jobs.CountAsync(predicate, cancellationToken);
-        IReadOnlyList<Job> jobs = await _unitOfWork.Jobs.FindAsync(predicate, cancellationToken);
-
-        List<Job> paginatedJobs = jobs
-            .Skip((filter.Page - 1) * filter.PageSize)
-            .Take(filter.PageSize)
-            .ToList();
+        (IReadOnlyList<Job> jobs, int totalCount) = await _unitOfWork.Jobs
+            .FindPagedAsync(predicate, page, pageSize, cancellationToken);
 
         return new PaginatedResult<JobSummaryDto>
         {
-            Items = _mapper.Map<List<JobSummaryDto>>(paginatedJobs),
+            Items = _mapper.Map<List<JobSummaryDto>>(jobs),
             TotalCount = totalCount,
-            Page = filter.Page,
-            PageSize = filter.PageSize
+            Page = page,
+            PageSize = pageSize
         };
     }
 }

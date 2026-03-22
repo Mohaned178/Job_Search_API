@@ -19,11 +19,31 @@ public class GenericRepository<T> : IRepository<T> where T : BaseEntity
     public async Task<T?> GetByIdAsync(Guid id, CancellationToken ct = default)
         => await DbSet.FindAsync(new object[] { id }, ct);
 
+    public async Task<T?> FindFirstAsync(Expression<Func<T, bool>> predicate, CancellationToken ct = default)
+        => await DbSet.FirstOrDefaultAsync(predicate, ct);
+
     public async Task<IReadOnlyList<T>> GetAllAsync(CancellationToken ct = default)
         => await DbSet.ToListAsync(ct);
 
     public async Task<IReadOnlyList<T>> FindAsync(Expression<Func<T, bool>> predicate, CancellationToken ct = default)
         => await DbSet.Where(predicate).ToListAsync(ct);
+
+    public async Task<(IReadOnlyList<T> Items, int TotalCount)> FindPagedAsync(
+        Expression<Func<T, bool>> predicate,
+        int page,
+        int pageSize,
+        CancellationToken ct = default)
+    {
+        IQueryable<T> query = DbSet.Where(predicate);
+        int totalCount = await query.CountAsync(ct);
+
+        List<T> items = await query
+            .Skip((page - 1) * pageSize)
+            .Take(pageSize)
+            .ToListAsync(ct);
+
+        return (items, totalCount);
+    }
 
     public async Task<T> AddAsync(T entity, CancellationToken ct = default)
     {

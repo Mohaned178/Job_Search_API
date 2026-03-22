@@ -1,6 +1,7 @@
 using AutoMapper;
 using JobMarket.Application.Common.Interfaces;
 using JobMarket.Application.Features.Jobs.DTOs;
+using JobMarket.Domain.Entities;
 using MediatR;
 
 namespace JobMarket.Application.Features.Preferences.Queries.GetPersonalizedFeed;
@@ -20,32 +21,28 @@ public class GetPersonalizedFeedHandler : IRequestHandler<GetPersonalizedFeedQue
         GetPersonalizedFeedQuery request,
         CancellationToken cancellationToken)
     {
-        var userPrefs = await _unitOfWork.UserPreferences
-            .FindAsync(p => p.UserId == request.UserId, cancellationToken);
+        int page = Math.Max(1, request.Page);
+        int pageSize = Math.Clamp(request.PageSize, 1, 100);
 
-        var preferences = userPrefs.FirstOrDefault();
+        var preferences = await _unitOfWork.UserPreferences
+            .FindFirstAsync(p => p.UserId == request.UserId, cancellationToken);
 
-        var jobs = preferences != null
-            ? await _unitOfWork.Jobs.FindAsync(j =>
+        System.Linq.Expressions.Expression<Func<Job, bool>> predicate = preferences != null
+            ? j =>
                 (!preferences.PreferredJobType.HasValue || j.JobType == preferences.PreferredJobType) &&
                 (!preferences.PreferredSeniority.HasValue || j.SeniorityLevel == preferences.PreferredSeniority) &&
-                (preferences.PreferredLocations.Count == 0 || preferences.PreferredLocations.Contains(j.Country) || preferences.PreferredLocations.Contains(j.City)),
-                cancellationToken)
-            : await _unitOfWork.Jobs.GetAllAsync(cancellationToken);
+                (preferences.PreferredLocations.Count == 0 || preferences.PreferredLocations.Contains(j.Country) || preferences.PreferredLocations.Contains(j.City))
+            : j => true;
 
-        int totalCount = jobs.Count;
-        var paginatedJobs = jobs
-            .OrderByDescending(j => j.PostedAt)
-            .Skip((request.Page - 1) * request.PageSize)
-            .Take(request.PageSize)
-            .ToList();
+        (IReadOnlyList<Job> jobs, int totalCount) = await _unitOfWork.Jobs
+            .FindPagedAsync(predicate, page, pageSize, cancellationToken);
 
         return new PaginatedResult<JobSummaryDto>
         {
-            Items = _mapper.Map<List<JobSummaryDto>>(paginatedJobs),
+            Items = _mapper.Map<List<JobSummaryDto>>(jobs),
             TotalCount = totalCount,
-            Page = request.Page,
-            PageSize = request.PageSize
+            Page = page,
+            PageSize = pageSize
         };
     }
 }
