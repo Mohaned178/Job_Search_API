@@ -18,18 +18,15 @@ public class RefreshTokenHandler : IRequestHandler<RefreshTokenCommand, AuthResp
 
     public async Task<AuthResponse> Handle(RefreshTokenCommand request, CancellationToken cancellationToken)
     {
-        var users = await _unitOfWork.Users
-            .FindAsync(u => u.RefreshToken == request.RefreshToken, cancellationToken);
-
-        var user = users.FirstOrDefault()
+        var user = await _unitOfWork.Users
+            .FindFirstAsync(u => u.RefreshToken == request.RefreshToken, cancellationToken)
             ?? throw new UnauthorizedException("Invalid refresh token.");
 
         if (!user.IsRefreshTokenValid(request.RefreshToken))
             throw new UnauthorizedException("Refresh token has expired.");
 
         string accessToken = _tokenService.GenerateAccessToken(user);
-        string newRefreshToken = _tokenService.GenerateRefreshToken();
-        DateTime refreshTokenExpiry = DateTime.UtcNow.AddDays(7);
+        (string newRefreshToken, DateTime refreshTokenExpiry) = _tokenService.GenerateRefreshToken();
 
         user.SetRefreshToken(newRefreshToken, refreshTokenExpiry);
         await _unitOfWork.Users.UpdateAsync(user, cancellationToken);

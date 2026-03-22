@@ -23,18 +23,15 @@ public class LoginHandler : IRequestHandler<LoginCommand, AuthResponse>
 
     public async Task<AuthResponse> Handle(LoginCommand request, CancellationToken cancellationToken)
     {
-        var users = await _unitOfWork.Users
-            .FindAsync(u => u.Email == request.Email, cancellationToken);
-
-        var user = users.FirstOrDefault()
+        var user = await _unitOfWork.Users
+            .FindFirstAsync(u => u.Email == request.Email, cancellationToken)
             ?? throw new DomainException("Invalid email or password.");
 
         if (!_passwordHasher.Verify(request.Password, user.PasswordHash))
             throw new DomainException("Invalid email or password.");
 
         string accessToken = _tokenService.GenerateAccessToken(user);
-        string refreshToken = _tokenService.GenerateRefreshToken();
-        DateTime refreshTokenExpiry = DateTime.UtcNow.AddDays(7);
+        (string refreshToken, DateTime refreshTokenExpiry) = _tokenService.GenerateRefreshToken();
 
         user.SetRefreshToken(refreshToken, refreshTokenExpiry);
         await _unitOfWork.Users.UpdateAsync(user, cancellationToken);

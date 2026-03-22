@@ -34,8 +34,7 @@ public class RegisterHandler : IRequestHandler<RegisterCommand, AuthResponse>
         User user = User.Create(request.Email, hashedPassword);
 
         string accessToken = _tokenService.GenerateAccessToken(user);
-        string refreshToken = _tokenService.GenerateRefreshToken();
-        DateTime refreshTokenExpiry = DateTime.UtcNow.AddDays(7);
+        (string refreshToken, DateTime refreshTokenExpiry) = _tokenService.GenerateRefreshToken();
 
         user.SetRefreshToken(refreshToken, refreshTokenExpiry);
 

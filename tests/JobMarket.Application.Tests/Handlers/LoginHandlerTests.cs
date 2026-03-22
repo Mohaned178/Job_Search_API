@@ -28,12 +28,13 @@ public class LoginHandlerTests
     public async Task Handle_WithValidCredentials_ReturnsAuthResponse()
     {
         var user = User.Create("test@example.com", "hashed");
+        var refreshExpiry = DateTime.UtcNow.AddDays(7);
 
-        _userRepoMock.Setup(r => r.FindAsync(It.IsAny<System.Linq.Expressions.Expression<Func<User, bool>>>(), default))
-            .ReturnsAsync(new List<User> { user });
+        _userRepoMock.Setup(r => r.FindFirstAsync(It.IsAny<System.Linq.Expressions.Expression<Func<User, bool>>>(), default))
+            .ReturnsAsync(user);
         _passwordHasherMock.Setup(h => h.Verify("Password123!", "hashed")).Returns(true);
         _tokenServiceMock.Setup(t => t.GenerateAccessToken(user)).Returns("access_token");
-        _tokenServiceMock.Setup(t => t.GenerateRefreshToken()).Returns("refresh_token");
+        _tokenServiceMock.Setup(t => t.GenerateRefreshToken()).Returns(("refresh_token", refreshExpiry));
         _userRepoMock.Setup(r => r.UpdateAsync(user, default)).Returns(Task.CompletedTask);
         _unitOfWorkMock.Setup(u => u.SaveChangesAsync(default)).ReturnsAsync(1);
 
@@ -47,8 +48,8 @@ public class LoginHandlerTests
     [Fact]
     public async Task Handle_WithUnknownEmail_ThrowsDomainException()
     {
-        _userRepoMock.Setup(r => r.FindAsync(It.IsAny<System.Linq.Expressions.Expression<Func<User, bool>>>(), default))
-            .ReturnsAsync(new List<User>());
+        _userRepoMock.Setup(r => r.FindFirstAsync(It.IsAny<System.Linq.Expressions.Expression<Func<User, bool>>>(), default))
+            .ReturnsAsync((User?)null);
 
         var handler = CreateHandler();
         Func<Task> act = () => handler.Handle(new LoginCommand("unknown@example.com", "pass"), default);
@@ -61,8 +62,8 @@ public class LoginHandlerTests
     {
         var user = User.Create("test@example.com", "hashed");
 
-        _userRepoMock.Setup(r => r.FindAsync(It.IsAny<System.Linq.Expressions.Expression<Func<User, bool>>>(), default))
-            .ReturnsAsync(new List<User> { user });
+        _userRepoMock.Setup(r => r.FindFirstAsync(It.IsAny<System.Linq.Expressions.Expression<Func<User, bool>>>(), default))
+            .ReturnsAsync(user);
         _passwordHasherMock.Setup(h => h.Verify("wrong", "hashed")).Returns(false);
 
         var handler = CreateHandler();

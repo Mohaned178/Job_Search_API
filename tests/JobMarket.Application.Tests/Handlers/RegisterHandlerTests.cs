@@ -26,11 +26,13 @@ public class RegisterHandlerTests
     [Fact]
     public async Task Handle_WithNewEmail_ReturnsAuthResponse()
     {
+        var refreshExpiry = DateTime.UtcNow.AddDays(7);
+
         _userRepoMock.Setup(r => r.ExistsAsync(It.IsAny<System.Linq.Expressions.Expression<Func<User, bool>>>(), default))
             .ReturnsAsync(false);
         _passwordHasherMock.Setup(h => h.Hash("Password123!")).Returns("hashed");
         _tokenServiceMock.Setup(t => t.GenerateAccessToken(It.IsAny<User>())).Returns("access_token");
-        _tokenServiceMock.Setup(t => t.GenerateRefreshToken()).Returns("refresh_token");
+        _tokenServiceMock.Setup(t => t.GenerateRefreshToken()).Returns(("refresh_token", refreshExpiry));
         _unitOfWorkMock.Setup(u => u.SaveChangesAsync(default)).ReturnsAsync(1);
 
         var handler = CreateHandler();
@@ -57,11 +59,13 @@ public class RegisterHandlerTests
     [Fact]
     public async Task Handle_WithNewEmail_CallsPasswordHasher()
     {
+        var refreshExpiry = DateTime.UtcNow.AddDays(7);
+
         _userRepoMock.Setup(r => r.ExistsAsync(It.IsAny<System.Linq.Expressions.Expression<Func<User, bool>>>(), default))
             .ReturnsAsync(false);
         _passwordHasherMock.Setup(h => h.Hash(It.IsAny<string>())).Returns("hashed");
         _tokenServiceMock.Setup(t => t.GenerateAccessToken(It.IsAny<User>())).Returns("token");
-        _tokenServiceMock.Setup(t => t.GenerateRefreshToken()).Returns("refresh");
+        _tokenServiceMock.Setup(t => t.GenerateRefreshToken()).Returns(("refresh", refreshExpiry));
         _unitOfWorkMock.Setup(u => u.SaveChangesAsync(default)).ReturnsAsync(1);
 
         var handler = CreateHandler();

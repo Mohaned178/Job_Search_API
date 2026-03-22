@@ -42,11 +42,15 @@ public class TokenService : ITokenService
         return new JwtSecurityTokenHandler().WriteToken(token);
     }
 
-    public string GenerateRefreshToken()
+    public (string Token, DateTime Expiry) GenerateRefreshToken()
     {
         byte[] randomBytes = new byte[64];
         using RandomNumberGenerator rng = RandomNumberGenerator.Create();
         rng.GetBytes(randomBytes);
-        return Convert.ToBase64String(randomBytes);
+
+        string token = Convert.ToBase64String(randomBytes);
+        DateTime expiry = DateTime.UtcNow.AddDays(_options.RefreshTokenExpiryDays);
+
+        return (token, expiry);
     }
 }
