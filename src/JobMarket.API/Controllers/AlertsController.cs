@@ -31,6 +31,9 @@ public class AlertsController : ControllerBase
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
     public async Task<IActionResult> Create([FromBody] CreateAlertRequest request, CancellationToken ct)
     {
+        if (request.Keywords is null || request.Keywords.Count == 0)
+            return BadRequest(new { type = "ValidationError", message = "At least one keyword is required." });
+
         Guid userId = User.GetUserId();
         JobAlert alert = JobAlert.Create(userId, request.Keywords);
 
@@ -47,10 +50,10 @@ public class AlertsController : ControllerBase
     public async Task<IActionResult> Delete(Guid id, CancellationToken ct)
     {
         Guid userId = User.GetUserId();
-        var alerts = await _unitOfWork.JobAlerts.FindAsync(a => a.Id == id && a.UserId == userId, ct);
-        var alert = alerts.FirstOrDefault();
+        var alert = await _unitOfWork.JobAlerts
+            .FindFirstAsync(a => a.Id == id && a.UserId == userId, ct);
 
-        if (alert == null)
+        if (alert is null)
             return NotFound();
 
         await _unitOfWork.JobAlerts.DeleteAsync(alert, ct);

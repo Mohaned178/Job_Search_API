@@ -37,7 +37,7 @@ public class WatchlistController : ControllerBase
             w => w.UserId == userId && w.JobId == jobId, ct);
 
         if (exists)
-            return Conflict("Job is already in watchlist.");
+            return Conflict(new { type = "Conflict", message = "Job is already in watchlist." });
 
         WatchlistItem item = WatchlistItem.Create(userId, jobId);
         await _unitOfWork.WatchlistItems.AddAsync(item, ct);
@@ -53,11 +53,10 @@ public class WatchlistController : ControllerBase
     public async Task<IActionResult> Remove(Guid jobId, CancellationToken ct)
     {
         Guid userId = User.GetUserId();
-        var items = await _unitOfWork.WatchlistItems.FindAsync(
-            w => w.UserId == userId && w.JobId == jobId, ct);
+        var item = await _unitOfWork.WatchlistItems
+            .FindFirstAsync(w => w.UserId == userId && w.JobId == jobId, ct);
 
-        var item = items.FirstOrDefault();
-        if (item == null)
+        if (item is null)
             return NotFound();
 
         await _unitOfWork.WatchlistItems.DeleteAsync(item, ct);
