@@ -1,6 +1,5 @@
 using JobMarket.Application.Common.Interfaces;
 using JobMarket.Domain.Enums;
-using JobMarket.Infrastructure.AI;
 using JobMarket.Infrastructure.Persistence;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
@@ -10,13 +9,13 @@ namespace JobMarket.Infrastructure.Jobs;
 public class JobEnrichmentJob
 {
     private readonly AppDbContext _context;
-    private readonly OpenAiJobEnrichmentService _enrichmentService;
+    private readonly IJobEnrichmentService _enrichmentService;
     private readonly IEmbeddingService _embeddingService;
     private readonly ILogger<JobEnrichmentJob> _logger;
 
     public JobEnrichmentJob(
         AppDbContext context,
-        OpenAiJobEnrichmentService enrichmentService,
+        IJobEnrichmentService enrichmentService,
         IEmbeddingService embeddingService,
         ILogger<JobEnrichmentJob> logger)
     {

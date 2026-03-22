@@ -82,7 +82,7 @@ public class AtsService : IAtsService
         int completenessScore,
         int skillRelevanceScore)
     {
-        List<string> suggestions = new();
+        List<string> suggestions = [];
 
         if (keywordScore < 20)
             suggestions.Add("Add more industry-specific keywords and technical skills to improve ATS keyword detection.");

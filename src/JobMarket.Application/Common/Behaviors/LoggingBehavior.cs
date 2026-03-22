@@ -1,4 +1,3 @@
-using System.Diagnostics;
 using MediatR;
 using Microsoft.Extensions.Logging;
 
@@ -20,11 +19,9 @@ public class LoggingBehavior<TRequest, TResponse> : IPipelineBehavior<TRequest, 
         string requestName = typeof(TRequest).Name;
         _logger.LogInformation("Handling {RequestName}", requestName);
 
-        Stopwatch stopwatch = Stopwatch.StartNew();
         TResponse response = await next();
-        stopwatch.Stop();
 
-        _logger.LogInformation("Handled {RequestName} in {ElapsedMs}ms", requestName, stopwatch.ElapsedMilliseconds);
+        _logger.LogInformation("Handled {RequestName}", requestName);
         return response;
     }
 }

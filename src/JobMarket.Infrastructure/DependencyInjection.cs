@@ -24,7 +24,9 @@ public static class DependencyInjection
         this IServiceCollection services,
         IConfiguration configuration)
     {
-        string connectionString = configuration.GetConnectionString("Postgres")!;
+        string connectionString = configuration.GetConnectionString("Postgres")
+            ?? throw new InvalidOperationException("Connection string 'Postgres' is not configured.");
+
         string redisConnection = configuration.GetConnectionString("Redis") ?? "localhost:6379";
 
         services.AddDbContext<AppDbContext>(options =>
@@ -77,7 +79,7 @@ public static class DependencyInjection
         services.AddScoped<IScraperStrategy, RemotiveApiStrategy>();
         services.AddScoped<ScraperFactory>();
 
-        services.AddSingleton<IConnectionMultiplexer>(
+        services.AddSingleton<IConnectionMultiplexer>(sp =>
             ConnectionMultiplexer.Connect(redisConnection));
 
         services.AddHangfire(cfg =>

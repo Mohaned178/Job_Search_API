@@ -1,12 +1,11 @@
 using JobMarket.Application.Common.Interfaces;
 using JobMarket.Domain.Entities;
 using JobMarket.Infrastructure.Persistence.Repositories;
-using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Storage;
 
 namespace JobMarket.Infrastructure.Persistence;
 
-public class UnitOfWork : IUnitOfWork
+public class UnitOfWork : IUnitOfWork, IAsyncDisposable
 {
     private readonly AppDbContext _context;
     private IDbContextTransaction? _transaction;
@@ -39,16 +38,32 @@ public class UnitOfWork : IUnitOfWork
 
     public async Task CommitTransactionAsync(CancellationToken ct = default)
     {
+        if (_transaction is null)
+            throw new InvalidOperationException("No active transaction to commit. Call BeginTransactionAsync first.");
+
         await _context.SaveChangesAsync(ct);
-        await _transaction!.CommitAsync(ct);
+        await _transaction.CommitAsync(ct);
     }
 
     public async Task RollbackTransactionAsync(CancellationToken ct = default)
-        => await _transaction!.RollbackAsync(ct);
+    {
+        if (_transaction is null)
+            throw new InvalidOperationException("No active transaction to rollback. Call BeginTransactionAsync first.");
+
+        await _transaction.RollbackAsync(ct);
+    }
 
     public void Dispose()
     {
         _transaction?.Dispose();
         _context.Dispose();
+    }
+
+    public async ValueTask DisposeAsync()
+    {
+        if (_transaction is not null)
+            await _transaction.DisposeAsync();
+
+        await _context.DisposeAsync();
     }
 }
